@@ -124,10 +124,45 @@ export function useMobileRecording(): UseMobileRecordingReturn {
         return
       }
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: "video/webm" })
         chunksRef.current = []
         setIsRecording(false)
+
+        // Attempt upload to server
+        if (blob.size > 0) {
+          const formData = new FormData()
+          formData.append("file", blob, `mobile-recording-${Date.now()}.webm`)
+          // Extract session ID from URL or context if possible, otherwise generic
+          const sessionId = new URLSearchParams(window.location.search).get("session") || "unknown_session"
+          formData.append("sessionId", sessionId)
+
+          try {
+            // Show uploading toast/indicator here if possible
+            console.log("Uploading mobile recording...")
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            })
+            if (res.ok) {
+              console.log("Mobile recording uploaded successfully")
+            } else {
+              throw new Error("Upload failed")
+            }
+          } catch (e) {
+            console.error("Upload failed, falling back to download", e)
+            // Fallback: Download if upload fails (e.g. size limit)
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.style.display = "none"
+            a.href = url
+            a.download = `proctor-mobile-${new Date().toISOString()}.webm`
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+          }
+        }
+
         resolve(blob)
       }
 

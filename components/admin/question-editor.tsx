@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Question, Difficulty } from "@/types"
 import { updateQuestion, addQuestion, getQuestions, resetQuestionBank } from "@/services/question-service"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,10 +19,20 @@ import { Edit2, Plus, RefreshCw, Check, X } from "lucide-react"
  */
 
 export function QuestionEditor() {
-  const [questions, setQuestions] = useState<Question[]>(() => getQuestions())
+  const [questions, setQuestions] = useState<Question[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<Question>>({})
   const [isAddingNew, setIsAddingNew] = useState(false)
+
+  // Load questions on mount
+  useEffect(() => {
+    loadQuestions()
+  }, [])
+
+  const loadQuestions = async () => {
+    const data = await getQuestions()
+    setQuestions(data)
+  }
 
   const difficultyColors: Record<Difficulty, string> = {
     easy: "bg-success/20 text-success",
@@ -35,12 +45,12 @@ export function QuestionEditor() {
     setEditForm({ ...question })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingId || !editForm.questionId) return
 
-    const success = updateQuestion(editingId, editForm)
+    const success = await updateQuestion(editingId, editForm)
     if (success) {
-      setQuestions(getQuestions())
+      await loadQuestions()
       setEditingId(null)
       setEditForm({})
     }
@@ -52,7 +62,7 @@ export function QuestionEditor() {
     setIsAddingNew(false)
   }
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
     const newQuestion: Question = {
       questionId: `q${Date.now()}`,
       question: editForm.question || "",
@@ -62,16 +72,18 @@ export function QuestionEditor() {
       minimumExpectedTime: editForm.minimumExpectedTime || 30,
     }
 
-    addQuestion(newQuestion)
-    setQuestions(getQuestions())
+    await addQuestion(newQuestion)
+    await loadQuestions()
     setIsAddingNew(false)
     setEditForm({})
   }
 
-  const handleReset = () => {
-    resetQuestionBank()
-    setQuestions(getQuestions())
+  const handleReset = async () => {
+    await resetQuestionBank()
+    await loadQuestions()
   }
+
+
 
   return (
     <Card className="border-border/50 bg-card/80">

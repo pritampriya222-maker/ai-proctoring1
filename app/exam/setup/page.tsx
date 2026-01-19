@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { sampleQuestions, EXAM_CONFIG } from "@/data/questions"
+import { getQuestions } from "@/services/question-service"
 import { Shield, Camera, Monitor, Loader2, Play, LogOut, Info } from "lucide-react"
 
 /**
@@ -91,8 +92,19 @@ export default function ExamSetupPage() {
     // Start recording
     await startRecording()
 
+    // Fetch latest questions from server
+    let questions = sampleQuestions;
+    try {
+      const serverQuestions = await getQuestions();
+      if (serverQuestions && serverQuestions.length > 0) {
+        questions = serverQuestions;
+      }
+    } catch (e) {
+      console.error("Failed to load questions, using defaults", e);
+    }
+
     // Initialize exam with questions
-    initializeExam(sampleQuestions, EXAM_CONFIG.duration)
+    initializeExam(questions, EXAM_CONFIG.duration)
 
     // Navigate to exam
     router.push("/exam")

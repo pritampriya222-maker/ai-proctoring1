@@ -34,8 +34,8 @@ export default function AdminDashboard() {
   }, [isAuthenticated, user, router])
 
   useEffect(() => {
-    const loadSessions = () => {
-      const activeSessions = getActiveSessions()
+    const loadSessions = async () => {
+      const activeSessions = await getActiveSessions()
       const studentSessions = activeSessions.map(toStudentSession)
       setSessions(studentSessions)
 
@@ -68,13 +68,13 @@ export default function AdminDashboard() {
       prev.map((session) =>
         session.sessionId === sessionId
           ? {
-              ...session,
-              status: "terminated",
-              webcamActive: false,
-              screenShareActive: false,
-              mobileConnected: false,
-              activityLog: [...session.activityLog, { action: "Session terminated by proctor", timestamp: Date.now() }],
-            }
+            ...session,
+            status: "terminated",
+            webcamActive: false,
+            screenShareActive: false,
+            mobileConnected: false,
+            activityLog: [...session.activityLog, { action: "Session terminated by proctor", timestamp: Date.now() }],
+          }
           : session,
       ),
     )

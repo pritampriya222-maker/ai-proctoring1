@@ -27,97 +27,101 @@ export interface ActiveSessionData {
 }
 
 // Register a new session when exam starts
-export function registerSession(data: Omit<ActiveSessionData, "lastUpdate">): void {
-  const sessions = getActiveSessions()
-  const existingIndex = sessions.findIndex((s) => s.sessionId === data.sessionId)
-
-  const sessionData: ActiveSessionData = {
-    ...data,
-    lastUpdate: Date.now(),
+export async function registerSession(data: Omit<ActiveSessionData, "lastUpdate">): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'register', data })
+    })
+  } catch (e) {
+    console.error("Failed to register session", e)
   }
-
-  if (existingIndex >= 0) {
-    sessions[existingIndex] = sessionData
-  } else {
-    sessions.push(sessionData)
-  }
-
-  localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
 }
 
 // Update session status
-export function updateSession(
+export async function updateSession(
   sessionId: string,
   updates: Partial<Omit<ActiveSessionData, "sessionId" | "studentId" | "studentName">>,
-): void {
-  const sessions = getActiveSessions()
-  const index = sessions.findIndex((s) => s.sessionId === sessionId)
-
-  if (index >= 0) {
-    sessions[index] = {
-      ...sessions[index],
-      ...updates,
-      lastUpdate: Date.now(),
-    }
-    localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
+): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', sessionId, data: updates })
+    })
+  } catch (e) {
+    console.error("Failed to update session", e)
   }
 }
 
 // Add activity log entry
-export function addActivityLog(sessionId: string, action: string): void {
-  const sessions = getActiveSessions()
-  const index = sessions.findIndex((s) => s.sessionId === sessionId)
-
-  if (index >= 0) {
-    sessions[index].activityLog.push({ action, timestamp: Date.now() })
-    sessions[index].lastUpdate = Date.now()
-    localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
+export async function addActivityLog(sessionId: string, action: string): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'log_activity', sessionId, data: { action } })
+    })
+  } catch (e) {
+    console.error("Failed to log activity", e)
   }
 }
 
 // Add behavior flag
-export function addBehaviorFlag(sessionId: string, flag: BehaviorFlag): void {
-  const sessions = getActiveSessions()
-  const index = sessions.findIndex((s) => s.sessionId === sessionId)
-
-  if (index >= 0) {
-    sessions[index].behaviorFlags.push(flag)
-    sessions[index].lastUpdate = Date.now()
-    localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
+export async function addBehaviorFlag(sessionId: string, flag: BehaviorFlag): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_flag', sessionId, data: { flag } })
+    })
+  } catch (e) {
+    console.error("Failed to add flag", e)
   }
 }
 
 // Complete session
-export function completeSession(sessionId: string): void {
-  const sessions = getActiveSessions()
-  const index = sessions.findIndex((s) => s.sessionId === sessionId)
-
-  if (index >= 0) {
-    sessions[index].webcamActive = false
-    sessions[index].screenShareActive = false
-    sessions[index].mobileConnected = false
-    sessions[index].lastUpdate = Date.now()
-    localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
+export async function completeSession(sessionId: string): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'complete', sessionId })
+    })
+  } catch (e) {
+    console.error("Failed to complete session", e)
   }
 }
 
 // Remove session
-export function removeSession(sessionId: string): void {
-  const sessions = getActiveSessions().filter((s) => s.sessionId !== sessionId)
-  localStorage.setItem(ACTIVE_SESSIONS_KEY, JSON.stringify(sessions))
+export async function removeSession(sessionId: string): Promise<void> {
+  if (typeof window === 'undefined') return
+  try {
+    await fetch('/api/admin/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove', sessionId })
+    })
+  } catch (e) {
+    console.error("Failed to remove session", e)
+  }
 }
 
 // Get all active sessions
-export function getActiveSessions(): ActiveSessionData[] {
-  if (typeof window === "undefined") return []
-
+export async function getActiveSessions(): Promise<ActiveSessionData[]> {
   try {
-    const stored = localStorage.getItem(ACTIVE_SESSIONS_KEY)
-    if (stored) {
-      return JSON.parse(stored)
+    const res = await fetch('/api/admin/sessions', { cache: 'no-store' });
+    if (res.ok) {
+      return await res.json();
     }
-  } catch {
-    // Ignore parse errors
+  } catch (e) {
+    console.error("Failed to fetch sessions", e);
   }
   return []
 }
