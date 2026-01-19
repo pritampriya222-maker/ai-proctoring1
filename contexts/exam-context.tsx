@@ -49,7 +49,9 @@ export function ExamProvider({ children }: ExamProviderProps) {
     if (!examState || !session || examState.isSubmitted) return
 
     const hasRecentHeartbeat = pairingState.lastHeartbeat
-      ? Date.now() - new Date(pairingState.lastHeartbeat).getTime() < 10000
+      ? Date.now() - (pairingState.lastHeartbeat instanceof Date
+        ? pairingState.lastHeartbeat.getTime()
+        : new Date(pairingState.lastHeartbeat).getTime()) < 10000
       : false
 
     const interval = setInterval(() => {
@@ -143,7 +145,10 @@ export function ExamProvider({ children }: ExamProviderProps) {
         if (answer.isLocked) return prev
 
         const newAnswers = [...prev.answers]
-        const timeOnQuestion = questionStartTime ? Math.floor((Date.now() - questionStartTime.getTime()) / 1000) : 0
+        const timeOnQuestion =
+          questionStartTime && questionStartTime instanceof Date
+            ? Math.floor((Date.now() - questionStartTime.getTime()) / 1000)
+            : 0
 
         newAnswers[answerIndex] = {
           ...answer,
@@ -170,7 +175,7 @@ export function ExamProvider({ children }: ExamProviderProps) {
         if (index < 0 || index >= prev.questions.length) return prev
 
         const currentAnswer = prev.answers[prev.currentQuestionIndex]
-        if (questionStartTime && !currentAnswer.isLocked) {
+        if (questionStartTime && questionStartTime instanceof Date && !currentAnswer.isLocked) {
           const timeOnQuestion = Math.floor((Date.now() - questionStartTime.getTime()) / 1000)
           const newAnswers = [...prev.answers]
           newAnswers[prev.currentQuestionIndex] = {
@@ -251,7 +256,8 @@ export function ExamProvider({ children }: ExamProviderProps) {
       if (!prev || prev.isSubmitted) return prev
 
       const endTime = new Date()
-      const examDuration = Math.floor((endTime.getTime() - (prev.startTime?.getTime() || 0)) / 1000)
+      const startTimeMs = prev.startTime && prev.startTime instanceof Date ? prev.startTime.getTime() : 0
+      const examDuration = Math.floor((endTime.getTime() - startTimeMs) / 1000)
 
       let totalCorrect = 0
       const questionLogs: QuestionLog[] = prev.questions.map((q, index) => {
