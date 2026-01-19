@@ -126,8 +126,15 @@ app.prepare().then(() => {
                 session.cameraConfirmed = true;
                 mobileSessions.set(sessionId, session);
                 // Emit update to BOTH admin and student (desktop)
-                io.to(sessionId).emit('pairing-update', { sessionId, cameraConfirmed: true });
-                io.to('admin-room').emit('pairing-update', { sessionId, cameraConfirmed: true });
+                const updateData = {
+                    sessionId,
+                    cameraConfirmed: true,
+                    status: 'connected',
+                    isPaired: true,
+                    deviceId: session.deviceId
+                };
+                io.to(sessionId).emit('pairing-update', updateData);
+                io.to('admin-room').emit('pairing-update', updateData);
                 persistState();
             }
         });
@@ -165,6 +172,18 @@ app.prepare().then(() => {
                 // Update connection status or re-join
                 session.status = session.status === 'terminated' ? 'terminated' : session.status;
                 examSessions.set(sessionId, session);
+            }
+
+            // JOIN SYNC: Send current mobile state to student immediately if connected
+            const mobileSession = mobileSessions.get(sessionId);
+            if (mobileSession && mobileSession.status === 'connected') {
+                socket.emit('pairing-update', {
+                    status: 'connected',
+                    isPaired: true,
+                    deviceId: mobileSession.deviceId,
+                    cameraConfirmed: mobileSession.cameraConfirmed,
+                    lastHeartbeat: mobileSession.lastHeartbeat
+                });
             }
 
             persistState();

@@ -64,12 +64,15 @@ export function PairingProvider({ children }: PairingProviderProps) {
             isPaired: true,
             deviceId: data.deviceId || prev.deviceId,
             lastHeartbeat: data.lastHeartbeat ? new Date(data.lastHeartbeat).toISOString() : new Date().toISOString(),
-            status: data.status
+            status: data.status,
+            // If server sends full object, use it, otherwise keep prev
+            cameraConfirmed: data.cameraConfirmed !== undefined ? data.cameraConfirmed : prev.cameraConfirmed
           }))
         } else if (data.status === 'disconnected') {
           setPairingState(prev => ({ ...prev, isPaired: false }))
         } else if (data.cameraConfirmed) {
-          setPairingState(prev => ({ ...prev, cameraConfirmed: true }))
+          // If we receive confirmation, we must be paired
+          setPairingState(prev => ({ ...prev, cameraConfirmed: true, isPaired: true }))
         }
       }
 
