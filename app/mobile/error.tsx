@@ -30,8 +30,9 @@ export default function Error({
                         We encountered an unexpected error while setting up the proctoring session.
                     </p>
 
-                    <div className="rounded-md bg-muted p-4 text-xs font-mono break-all text-left">
-                        {error.message || "Unknown error occurred"}
+                    <div className="rounded-md bg-muted p-4 text-xs font-mono break-all text-left overflow-auto max-h-64">
+                        <p className="font-bold mb-2">{error.message || "Unknown error occurred"}</p>
+                        {error.stack && <pre className="text-[10px] opacity-70 whitespace-pre-wrap">{error.stack}</pre>}
                     </div>
 
                     <Button onClick={() => reset()} className="w-full gap-2">
