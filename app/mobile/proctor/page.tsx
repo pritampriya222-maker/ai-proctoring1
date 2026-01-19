@@ -34,13 +34,7 @@ function MobileProctorContent() {
     setDeviceId(`mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`)
   }, [])
 
-  if (!isMounted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+
 
   useEffect(() => {
     if (!sessionId || step !== "active") return
@@ -135,6 +129,14 @@ function MobileProctorContent() {
     }
     setExamActive(false)
     setStep("complete")
+  }
+
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (step === "permission") {
