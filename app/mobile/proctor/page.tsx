@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useEffect, useState, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useMobileRecording } from "@/hooks/use-mobile-recording"
@@ -24,7 +26,11 @@ function MobileProctorContent() {
   const [isConnected, setIsConnected] = useState(false)
   const [examActive, setExamActive] = useState(false)
 
-  const deviceId = typeof window !== "undefined" ? `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` : ""
+  const [deviceId, setDeviceId] = useState("")
+
+  useEffect(() => {
+    setDeviceId(`mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`)
+  }, [])
 
   useEffect(() => {
     if (!sessionId || step !== "active") return

@@ -31,6 +31,11 @@ export function useMobileRecording(): UseMobileRecordingReturn {
     try {
       setError(null)
 
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera not supported on this device/browser")
+      }
+
       // Request camera with constraints optimized for mobile
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
