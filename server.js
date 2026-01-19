@@ -125,7 +125,8 @@ app.prepare().then(() => {
             if (session) {
                 session.cameraConfirmed = true;
                 mobileSessions.set(sessionId, session);
-                io.to(sessionId).emit('pairing-complete', { sessionId });
+                // Emit update to BOTH admin and student (desktop)
+                io.to(sessionId).emit('pairing-update', { sessionId, cameraConfirmed: true });
                 io.to('admin-room').emit('pairing-update', { sessionId, cameraConfirmed: true });
                 persistState();
             }
