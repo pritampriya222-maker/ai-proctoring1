@@ -83,18 +83,15 @@ function MobileProctorContent() {
     setIsConfirming(true)
 
     try {
-      await fetch('/api/pairing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          action: 'pair',
-          deviceId,
-          cameraConfirmed: true
-        })
+      // Use socket for real-time confirmation
+      import("@/lib/socket-client").then(({ socket }) => {
+        if (!socket.connected) socket.connect()
+
+        // Emit confirmation to server
+        socket.emit('mobile-camera-confirmed', { sessionId })
       })
 
-      // Also confirm camera specifically if needed, or 'pair' action covers it based on my API logic
+      // Backend API call for persistence (optional if server.js handles it, but good for redundancy)
       await fetch('/api/pairing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

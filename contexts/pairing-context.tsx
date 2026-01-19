@@ -45,6 +45,17 @@ export function PairingProvider({ children }: PairingProviderProps) {
     import("@/lib/socket-client").then(({ socket }) => {
       if (!socket.connected) socket.connect()
 
+      // CRITICAL: Join the session room to receive mobile updates
+      // We emit student-join to identify and join the room
+      if (session.sessionId) {
+        socket.emit('student-join', {
+          sessionId: session.sessionId,
+          studentId: session.studentId,
+          studentName: session.studentName || "Student",
+          examId: "exam-setup"
+        })
+      }
+
       const onPairingUpdate = (data: any) => {
         // Handle pairing update from socket
         if (data.status === 'connected' || data.isPaired) {
@@ -63,18 +74,7 @@ export function PairingProvider({ children }: PairingProviderProps) {
       }
 
       socket.on(`pairing-update`, onPairingUpdate)
-      socket.on(`mobile-status-update`, onPairingUpdate) // If broadcasted to room
-
-      // Also join a room for this session if not automatically done (usually server handles it on some join event)
-      // We can emit a 'desktop-join' or just rely on 'student-join' which is in ExamContext usually.
-      // But Pairing might happen before Exam starts.
-      // For now, let's assume 'student-join' or similar puts us in the room, 
-      // OR we just listen to 'pairing-update' which is broadcast to all? 
-      // Wait, in server.js I emitted to 'admin-room' and 'sessionId'.
-      // Desktop should join 'sessionId'.
-
-      // We'll rely on global socket connection logic or emit a join here.
-      // For pairing specifically, let's just listen.
+      socket.on(`mobile-status-update`, onPairingUpdate)
 
       return () => {
         socket.off(`pairing-update`, onPairingUpdate)
