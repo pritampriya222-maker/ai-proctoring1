@@ -175,8 +175,10 @@ app.prepare().then(() => {
             }
 
             // JOIN SYNC: Send current mobile state to student immediately if connected
+            // This is critical for page reloads or late connections
             const mobileSession = mobileSessions.get(sessionId);
             if (mobileSession && mobileSession.status === 'connected') {
+                console.log(`Sending immediate sync to ${studentId}: camera=${mobileSession.cameraConfirmed}`);
                 socket.emit('pairing-update', {
                     status: 'connected',
                     isPaired: true,

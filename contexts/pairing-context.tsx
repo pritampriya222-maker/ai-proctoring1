@@ -45,9 +45,37 @@ export function PairingProvider({ children }: PairingProviderProps) {
     import("@/lib/socket-client").then(({ socket }) => {
       if (!socket.connected) socket.connect()
 
-      // CRITICAL: Join the session room to receive mobile updates
-      // We emit student-join to identify and join the room
+      const onPairingUpdate = (data: any) => {
+        console.log("Socket: Pairing update received", data)
+        // Handle pairing update from socket
+        if (data.status === 'connected' || data.isPaired) {
+          setPairingState(prev => {
+            const newState = {
+              ...prev,
+              isPaired: true,
+              deviceId: data.deviceId || prev.deviceId,
+              lastHeartbeat: data.lastHeartbeat ? new Date(data.lastHeartbeat).toISOString() : new Date().toISOString(),
+              status: data.status,
+              cameraConfirmed: data.cameraConfirmed !== undefined ? data.cameraConfirmed : prev.cameraConfirmed
+            }
+            // Force isPaired if camera is confirmed
+            if (newState.cameraConfirmed) newState.isPaired = true;
+            return newState;
+          })
+        } else if (data.status === 'disconnected') {
+          setPairingState(prev => ({ ...prev, isPaired: false }))
+        } else if (data.cameraConfirmed) {
+          console.log("Socket: Camera confirmed only")
+          setPairingState(prev => ({ ...prev, cameraConfirmed: true, isPaired: true }))
+        }
+      }
+
+      socket.on(`pairing-update`, onPairingUpdate)
+      socket.on(`mobile-status-update`, onPairingUpdate)
+
+      // Emit join AFTER registering listeners
       if (session.sessionId) {
+        console.log("Socket: Joining student session", session.sessionId);
         socket.emit('student-join', {
           sessionId: session.sessionId,
           studentId: session.studentId,
@@ -55,29 +83,6 @@ export function PairingProvider({ children }: PairingProviderProps) {
           examId: "exam-setup"
         })
       }
-
-      const onPairingUpdate = (data: any) => {
-        // Handle pairing update from socket
-        if (data.status === 'connected' || data.isPaired) {
-          setPairingState(prev => ({
-            ...prev,
-            isPaired: true,
-            deviceId: data.deviceId || prev.deviceId,
-            lastHeartbeat: data.lastHeartbeat ? new Date(data.lastHeartbeat).toISOString() : new Date().toISOString(),
-            status: data.status,
-            // If server sends full object, use it, otherwise keep prev
-            cameraConfirmed: data.cameraConfirmed !== undefined ? data.cameraConfirmed : prev.cameraConfirmed
-          }))
-        } else if (data.status === 'disconnected') {
-          setPairingState(prev => ({ ...prev, isPaired: false }))
-        } else if (data.cameraConfirmed) {
-          // If we receive confirmation, we must be paired
-          setPairingState(prev => ({ ...prev, cameraConfirmed: true, isPaired: true }))
-        }
-      }
-
-      socket.on(`pairing-update`, onPairingUpdate)
-      socket.on(`mobile-status-update`, onPairingUpdate)
 
       return () => {
         socket.off(`pairing-update`, onPairingUpdate)
