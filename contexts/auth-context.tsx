@@ -86,14 +86,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [students, setStudents] = useState<Record<string, { password: string; student: Student }>>(INITIAL_STUDENTS)
 
   useEffect(() => {
-    const storedStudents = localStorage.getItem("proctor_students")
-    if (storedStudents) {
-      try {
-        const parsed = JSON.parse(storedStudents)
-        setStudents({ ...INITIAL_STUDENTS, ...parsed })
-      } catch (error) {
-        console.error("Failed to parse stored students:", error)
+    try {
+      const storedStudents = localStorage.getItem("proctor_students")
+      if (storedStudents) {
+        try {
+          const parsed = JSON.parse(storedStudents)
+          setStudents({ ...INITIAL_STUDENTS, ...parsed })
+        } catch (error) {
+          console.error("Failed to parse stored students:", error)
+        }
       }
+    } catch (e) {
+      console.warn("LocalStorage access failed:", e)
     }
   }, [])
 
@@ -105,42 +109,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
         customStudents[key] = value
       }
     })
+
     if (Object.keys(customStudents).length > 0) {
-      localStorage.setItem("proctor_students", JSON.stringify(customStudents))
+      try {
+        localStorage.setItem("proctor_students", JSON.stringify(customStudents))
+      } catch (e) {
+        console.warn("LocalStorage write failed:", e)
+      }
     }
   }, [students])
 
   useEffect(() => {
-    const storedSession = sessionStorage.getItem("proctor_session")
-    const storedStudent = sessionStorage.getItem("proctor_student")
-    const storedUser = sessionStorage.getItem("proctor_user")
+    try {
+      const storedSession = sessionStorage.getItem("proctor_session")
+      const storedStudent = sessionStorage.getItem("proctor_student")
+      const storedUser = sessionStorage.getItem("proctor_user")
 
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser)
-        setUser(parsedUser)
-      } catch (error) {
-        console.error("Failed to restore user:", error)
-        sessionStorage.removeItem("proctor_user")
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+        } catch (error) {
+          console.error("Failed to restore user:", error)
+          sessionStorage.removeItem("proctor_user")
+        }
       }
-    }
 
-    if (storedSession && storedStudent) {
-      try {
-        const parsedSession = JSON.parse(storedSession)
-        const parsedStudent = JSON.parse(storedStudent)
+      if (storedSession && storedStudent) {
+        try {
+          const parsedSession = JSON.parse(storedSession)
+          const parsedStudent = JSON.parse(storedStudent)
 
-        if (parsedSession.startTime) parsedSession.startTime = new Date(parsedSession.startTime)
-        if (parsedSession.endTime) parsedSession.endTime = new Date(parsedSession.endTime)
-        if (parsedSession.pairingTimestamp) parsedSession.pairingTimestamp = new Date(parsedSession.pairingTimestamp)
+          if (parsedSession.startTime) parsedSession.startTime = new Date(parsedSession.startTime)
+          if (parsedSession.endTime) parsedSession.endTime = new Date(parsedSession.endTime)
+          if (parsedSession.pairingTimestamp) parsedSession.pairingTimestamp = new Date(parsedSession.pairingTimestamp)
 
-        setSession(parsedSession)
-        setStudent(parsedStudent)
-      } catch (error) {
-        console.error("Failed to restore session:", error)
-        sessionStorage.removeItem("proctor_session")
-        sessionStorage.removeItem("proctor_student")
+          setSession(parsedSession)
+          setStudent(parsedStudent)
+        } catch (error) {
+          console.error("Failed to restore session:", error)
+          sessionStorage.removeItem("proctor_session")
+          sessionStorage.removeItem("proctor_student")
+        }
       }
+    } catch (e) {
+      console.warn("SessionStorage access failed:", e)
     }
     setIsLoading(false)
   }, [])
@@ -167,7 +180,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (storedStudents) {
       try {
         allStudents = { ...allStudents, ...JSON.parse(storedStudents) }
-      } catch {}
+      } catch { }
     }
 
     const userData = allStudents[studentId.toUpperCase()]
@@ -288,7 +301,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const parsed = JSON.parse(storedStudents)
           delete parsed[normalizedId]
           localStorage.setItem("proctor_students", JSON.stringify(parsed))
-        } catch {}
+        } catch { }
       }
 
       return true

@@ -27,10 +27,20 @@ function MobileProctorContent() {
   const [examActive, setExamActive] = useState(false)
 
   const [deviceId, setDeviceId] = useState("")
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
     setDeviceId(`mobile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`)
   }, [])
+
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (!sessionId || step !== "active") return

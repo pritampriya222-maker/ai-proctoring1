@@ -84,9 +84,21 @@ export function useMobileRecording(): UseMobileRecordingReturn {
     try {
       chunksRef.current = []
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: "video/webm;codecs=vp9",
-      })
+      let mimeType = "video/webm;codecs=vp9"
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = "video/webm"
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "video/mp4"
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+              mimeType = "" // Let browser choose default
+            }
+          }
+        }
+      }
+
+      const options = mimeType ? { mimeType } : undefined
+      const recorder = new MediaRecorder(stream, options)
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
