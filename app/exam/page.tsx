@@ -7,6 +7,7 @@ import { useExam } from "@/contexts/exam-context"
 import { ExamInterface } from "@/components/exam/exam-interface"
 import { ResultsPage } from "@/components/exam/results-page"
 import { Loader2 } from "lucide-react"
+import { LiveStreamBroadcaster } from "@/components/exam/live-stream-broadcaster"
 
 /**
  * Exam Page
@@ -61,5 +62,10 @@ export default function ExamPage() {
     return <ResultsPage onLogout={handleLogout} />
   }
 
-  return <ExamInterface onExamComplete={handleExamComplete} />
+  return (
+    <>
+      <LiveStreamBroadcaster />
+      <ExamInterface onExamComplete={handleExamComplete} />
+    </>
+  )
 }

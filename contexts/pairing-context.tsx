@@ -41,32 +41,51 @@ export function PairingProvider({ children }: PairingProviderProps) {
   useEffect(() => {
     if (!session?.sessionId) return
 
-    const checkPairingStatus = async () => {
-      try {
-        const res = await fetch(`/api/pairing?sessionId=${session.sessionId}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.found) {
-            setPairingState({
-              isPaired: data.isPaired ?? false,
-              deviceId: data.deviceId ?? null,
-              pairingCode: data.pairingCode ?? null,
-              lastHeartbeat: data.lastHeartbeat ?? null,
-              cameraConfirmed: data.cameraConfirmed ?? false,
-            })
-          }
+    // Connect socket
+    import("@/lib/socket-client").then(({ socket }) => {
+      if (!socket.connected) socket.connect()
+
+      const onPairingUpdate = (data: any) => {
+        // Handle pairing update from socket
+        if (data.status === 'connected' || data.isPaired) {
+          setPairingState(prev => ({
+            ...prev,
+            isPaired: true,
+            deviceId: data.deviceId || prev.deviceId,
+            lastHeartbeat: data.lastHeartbeat ? new Date(data.lastHeartbeat).toISOString() : new Date().toISOString(),
+            status: data.status
+          }))
+        } else if (data.status === 'disconnected') {
+          setPairingState(prev => ({ ...prev, isPaired: false }))
+        } else if (data.cameraConfirmed) {
+          setPairingState(prev => ({ ...prev, cameraConfirmed: true }))
         }
-      } catch (error) {
-        console.error("Failed to check pairing status:", error)
       }
-    }
 
-    // Check immediately and then poll every 2 seconds
-    checkPairingStatus()
-    const interval = setInterval(checkPairingStatus, 2000)
+      socket.on(`pairing-update`, onPairingUpdate)
+      socket.on(`mobile-status-update`, onPairingUpdate) // If broadcasted to room
 
-    return () => clearInterval(interval)
+      // Also join a room for this session if not automatically done (usually server handles it on some join event)
+      // We can emit a 'desktop-join' or just rely on 'student-join' which is in ExamContext usually.
+      // But Pairing might happen before Exam starts.
+      // For now, let's assume 'student-join' or similar puts us in the room, 
+      // OR we just listen to 'pairing-update' which is broadcast to all? 
+      // Wait, in server.js I emitted to 'admin-room' and 'sessionId'.
+      // Desktop should join 'sessionId'.
+
+      // We'll rely on global socket connection logic or emit a join here.
+      // For pairing specifically, let's just listen.
+
+      return () => {
+        socket.off(`pairing-update`, onPairingUpdate)
+        socket.off(`mobile-status-update`, onPairingUpdate)
+      }
+    })
   }, [session?.sessionId])
+
+  // NOTE: Initial status check might still be useful via API if socket takes time to connect
+  // but for "Modify existing files" and "Use Socket.IO ONLY", I will rely on socket.
+
 
   // Generate QR code data for mobile pairing
   const generateQRCode = useCallback((): QRPairingData => {

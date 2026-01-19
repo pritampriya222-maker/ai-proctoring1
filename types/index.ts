@@ -68,7 +68,7 @@ export interface BehaviorFlag {
   type: "fast_correct" | "high_accuracy_hard" | "suspicious_pattern" | "face_absent" | "multiple_faces"
   description: string
   timestamp: Date
-  severity: "low" | "medium" | "high"
+  severity: "low" | "medium" | "high" | "critical"
 }
 
 export interface ExamLog {
@@ -192,4 +192,18 @@ export interface IntegrityReport {
   flags: BehaviorFlag[]
   faceTrackingLog: FaceTrackingLog
   recommendation: "pass" | "review" | "investigate"
+}
+export interface Section {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface QuestionPaper {
+  id: string
+  name: string
+  sections: Section[]
+  questions: Record<string, Question[]> // sectionId -> questions
+  totalQuestions: number
+  durationMinutes: number
 }

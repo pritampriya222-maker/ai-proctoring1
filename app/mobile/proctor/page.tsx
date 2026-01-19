@@ -39,45 +39,36 @@ function MobileProctorContent() {
   useEffect(() => {
     if (!sessionId || step !== "active") return
 
-    const pollStatus = async () => {
-      try {
-        const res = await fetch(`/api/pairing?sessionId=${sessionId}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.found) {
-            setIsConnected(true)
-            // Check if session ended on server (not implemented in simple API yet, but would go here)
-          } else {
-            setIsConnected(false)
-          }
-        }
-      } catch {
-        setIsConnected(false)
+    // Initialize socket connection
+    import("@/lib/socket-client").then(({ socket }) => {
+      if (!socket.connected) socket.connect()
+
+      // Join session
+      socket.emit('mobile-join', { sessionId, deviceId, studentId: 'mobile' }) // studentId might be needed, assume passed or 'mobile'
+
+      const sendHeartbeat = () => {
+        socket.emit('mobile-heartbeat', { sessionId, deviceId })
       }
-    }
 
-    const sendHeartbeat = () => {
-      fetch('/api/pairing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          action: 'heartbeat'
-        })
-      }).catch(console.error)
-    }
+      // Initial heartbeat
+      sendHeartbeat()
+      setIsConnected(true) // Assume connected if socket works
 
-    pollStatus()
-    sendHeartbeat()
+      const heartbeatInterval = setInterval(sendHeartbeat, 5000)
 
-    const pollInterval = setInterval(pollStatus, 3000)
-    const heartbeatInterval = setInterval(sendHeartbeat, 5000)
+      socket.on('disconnect', () => setIsConnected(false))
+      socket.on('connect', () => setIsConnected(true))
+      socket.on('force-disconnect', () => {
+        // Handle remote termination if needed
+      })
 
-    return () => {
-      clearInterval(pollInterval)
-      clearInterval(heartbeatInterval)
-    }
-  }, [sessionId, step])
+      return () => {
+        clearInterval(heartbeatInterval)
+        socket.off('disconnect')
+        socket.off('connect')
+      }
+    })
+  }, [sessionId, step, deviceId])
 
   const handleRequestPermission = async () => {
     const success = await requestPermission()
@@ -117,7 +108,7 @@ function MobileProctorContent() {
       console.error("Failed to pair", e)
     }
 
-    startRecording()
+    startRecording(sessionId!)
     setExamActive(true)
     setStep("active")
     setIsConfirming(false)

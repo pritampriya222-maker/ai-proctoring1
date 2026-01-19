@@ -9,6 +9,8 @@ import type { RecordingState } from "@/types"
  * Handles all media stream operations for proctoring
  */
 
+import { useAuth } from "./auth-context"
+
 interface RecordingContextType {
   recordingState: RecordingState
   isRecording: boolean
@@ -18,7 +20,7 @@ interface RecordingContextType {
   requestWebcamPermission: () => Promise<boolean>
   requestScreenPermission: () => Promise<boolean>
   startRecording: () => Promise<void>
-  stopRecording: () => Promise<Blob | null>
+  stopRecording: () => Promise<void>
   getWebcamStream: () => MediaStream | null
   getScreenStream: () => MediaStream | null
 }
@@ -30,6 +32,7 @@ interface RecordingProviderProps {
 }
 
 export function RecordingProvider({ children }: RecordingProviderProps) {
+  const { session } = useAuth()
   const [recordingState, setRecordingState] = useState<RecordingState>({
     isRecording: false,
     webcamStream: null,
@@ -223,9 +226,17 @@ export function RecordingProvider({ children }: RecordingProviderProps) {
       mimeType: "video/webm;codecs=vp9",
     })
 
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        recordedChunksRef.current.push(event.data)
+    recorder.ondataavailable = async (event) => {
+      if (event.data.size > 0 && session?.sessionId) {
+        // Stream to backend
+        try {
+          await fetch(`/api/recording/chunk?sessionId=${session.sessionId}&type=desktop`, {
+            method: 'POST',
+            body: event.data
+          });
+        } catch (e) {
+          console.error("Failed to upload desktop chunk", e);
+        }
       }
     }
 
@@ -237,14 +248,14 @@ export function RecordingProvider({ children }: RecordingProviderProps) {
       isRecording: true,
       startTime: new Date(),
     }))
-  }, [createMergedStream, recordingState.webcamStream])
+  }, [createMergedStream, recordingState.webcamStream, session?.sessionId])
 
   // Stop recording and return the recorded blob
-  const stopRecording = useCallback(async (): Promise<Blob | null> => {
+  const stopRecording = useCallback(async (): Promise<void> => {
     return new Promise((resolve) => {
       const recorder = mediaRecorderRef.current
       if (!recorder || recorder.state === "inactive") {
-        resolve(null)
+        resolve()
         return
       }
 
@@ -253,9 +264,6 @@ export function RecordingProvider({ children }: RecordingProviderProps) {
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current)
         }
-
-        // Get all recorded chunks
-        const blob = new Blob(recordedChunksRef.current, { type: "video/webm" })
 
         // Stop all tracks
         recordingState.webcamStream?.getTracks().forEach((track) => track.stop())
@@ -273,7 +281,7 @@ export function RecordingProvider({ children }: RecordingProviderProps) {
         setHasWebcamPermission(false)
         setHasScreenPermission(false)
 
-        resolve(blob)
+        resolve()
       }
 
       recorder.stop()

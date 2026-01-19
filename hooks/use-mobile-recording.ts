@@ -14,8 +14,8 @@ interface UseMobileRecordingReturn {
   hasPermission: boolean
   error: string | null
   requestPermission: () => Promise<boolean>
-  startRecording: () => void
-  stopRecording: () => Promise<Blob | null>
+  startRecording: (sessionId: string) => void
+  stopRecording: () => Promise<void>
 }
 
 export function useMobileRecording(): UseMobileRecordingReturn {
@@ -75,24 +75,21 @@ export function useMobileRecording(): UseMobileRecordingReturn {
     }
   }, [])
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback((sessionId: string) => {
     if (!stream) {
       setError("No camera stream available")
       return
     }
 
     try {
-      chunksRef.current = []
+      chunksRef.current = [] // Only for fallback if needed, but we rely on streaming
 
       let mimeType = "video/webm;codecs=vp9"
       if (typeof MediaRecorder.isTypeSupported === 'function') {
         if (!MediaRecorder.isTypeSupported(mimeType)) {
           mimeType = "video/webm"
           if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = "video/mp4"
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-              mimeType = "" // Let browser choose default
-            }
+            mimeType = ""
           }
         }
       }
@@ -100,9 +97,21 @@ export function useMobileRecording(): UseMobileRecordingReturn {
       const options = mimeType ? { mimeType } : undefined
       const recorder = new MediaRecorder(stream, options)
 
-      recorder.ondataavailable = (event) => {
+      recorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
-          chunksRef.current.push(event.data)
+          // chunksRef.current.push(event.data) // Disabled to save memory
+
+          // Stream to backend
+          try {
+            await fetch(`/api/recording/chunk?sessionId=${sessionId}&type=mobile`, {
+              method: 'POST',
+              body: event.data
+            });
+          } catch (e) {
+            console.error("Failed to upload chunk", e);
+            // Optionally retry or buffer? 
+            // For now, log error.
+          }
         }
       }
 
@@ -115,55 +124,18 @@ export function useMobileRecording(): UseMobileRecordingReturn {
     }
   }, [stream])
 
-  const stopRecording = useCallback(async (): Promise<Blob | null> => {
+  const stopRecording = useCallback(async (): Promise<void> => {
     return new Promise((resolve) => {
       const recorder = mediaRecorderRef.current
 
       if (!recorder || recorder.state === "inactive") {
-        resolve(null)
+        resolve()
         return
       }
 
-      recorder.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: "video/webm" })
-        chunksRef.current = []
+      recorder.onstop = () => {
         setIsRecording(false)
-
-        // Attempt upload to server
-        if (blob.size > 0) {
-          const formData = new FormData()
-          formData.append("file", blob, `mobile-recording-${Date.now()}.webm`)
-          // Extract session ID from URL or context if possible, otherwise generic
-          const sessionId = new URLSearchParams(window.location.search).get("session") || "unknown_session"
-          formData.append("sessionId", sessionId)
-
-          try {
-            // Show uploading toast/indicator here if possible
-            console.log("Uploading mobile recording...")
-            const res = await fetch('/api/upload', {
-              method: 'POST',
-              body: formData
-            })
-            if (res.ok) {
-              console.log("Mobile recording uploaded successfully")
-            } else {
-              throw new Error("Upload failed")
-            }
-          } catch (e) {
-            console.error("Upload failed, falling back to download", e)
-            // Fallback: Download if upload fails (e.g. size limit)
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.style.display = "none"
-            a.href = url
-            a.download = `proctor-mobile-${new Date().toISOString()}.webm`
-            document.body.appendChild(a)
-            a.click()
-            window.URL.revokeObjectURL(url)
-          }
-        }
-
-        resolve(blob)
+        resolve()
       }
 
       recorder.stop()

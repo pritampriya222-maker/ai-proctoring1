@@ -33,26 +33,66 @@ export default function AdminDashboard() {
     }
   }, [isAuthenticated, user, router])
 
+  // REAL-TIME SESSION MONITORING VIA SOCKET
   useEffect(() => {
-    const loadSessions = async () => {
-      const activeSessions = await getActiveSessions()
-      const studentSessions = activeSessions.map(toStudentSession)
-      setSessions(studentSessions)
+    import("@/lib/socket-client").then(({ socket }) => {
+      if (!socket.connected) socket.connect()
 
-      // Update watching session if it exists
-      if (watchingSession) {
-        const updated = studentSessions.find((s) => s.sessionId === watchingSession.sessionId)
-        if (updated) {
-          setWatchingSession(updated)
-        }
+      socket.emit('admin-join')
+
+      const updateSessionsList = (backendSessions: any[]) => {
+        // Convert backend session data to UI format
+        // Assuming backend structure matches ActiveSessionData
+        const mapped = backendSessions.map(toStudentSession)
+        setSessions(mapped)
+
+        // Update watching session details if needed
+        setWatchingSession(prev => {
+          if (!prev) return null
+          const updated = mapped.find(s => s.sessionId === prev.sessionId)
+          return updated || prev
+        })
       }
-    }
 
-    loadSessions()
-    const interval = setInterval(loadSessions, 2000)
+      // Initial State
+      socket.on('init-state', (data: { sessions: any[] }) => {
+        updateSessionsList(data.sessions)
+      })
 
-    return () => clearInterval(interval)
-  }, [watchingSession])
+      // Individual Updates (Optimized: update single item in array)
+      socket.on('session-updated', (updatedSession: any) => {
+        setSessions(prev => {
+          const idx = prev.findIndex(s => s.sessionId === updatedSession.sessionId)
+          const mapped = toStudentSession(updatedSession)
+          if (idx === -1) return [...prev, mapped]
+
+          const newSessions = [...prev]
+          newSessions[idx] = mapped
+
+          // Update watching session details if needed
+          setWatchingSession(w => {
+            if (w?.sessionId === mapped.sessionId) return mapped
+            return w
+          })
+
+          return newSessions
+        })
+      })
+
+      socket.on('student-added', (newSession: any) => {
+        setSessions(prev => {
+          if (prev.find(s => s.sessionId === newSession.sessionId)) return prev
+          return [...prev, toStudentSession(newSession)]
+        })
+      })
+
+      return () => {
+        socket.off('init-state')
+        socket.off('session-updated')
+        socket.off('student-added')
+      }
+    })
+  }, [])
 
   const handleViewDetails = (session: StudentSession) => {
     setSelectedSession(session)
@@ -64,32 +104,17 @@ export default function AdminDashboard() {
   }, [])
 
   const handleTerminate = (sessionId: string) => {
-    setSessions((prev) =>
-      prev.map((session) =>
-        session.sessionId === sessionId
-          ? {
-            ...session,
-            status: "terminated",
-            webcamActive: false,
-            screenShareActive: false,
-            mobileConnected: false,
-            activityLog: [...session.activityLog, { action: "Session terminated by proctor", timestamp: Date.now() }],
-          }
-          : session,
-      ),
-    )
+    import("@/lib/socket-client").then(({ socket }) => {
+      socket.emit('admin-terminate', { sessionId, reason: 'Terminated by Admin' })
+    })
+    // Optimistic update
+    setSessions(prev => prev.map(s => s.sessionId === sessionId ? { ...s, status: 'terminated' } : s))
   }
 
   const handleWarn = async (sessionId: string, message: string) => {
-    try {
-      await fetch('/api/admin/sessions', {
-        method: 'POST',
-        body: JSON.stringify({ action: 'warn', sessionId, data: { message } })
-      });
-      // Optimistically update UI? The poll will catch it anyway
-    } catch (e) {
-      console.error("Failed to warn", e);
-    }
+    import("@/lib/socket-client").then(({ socket }) => {
+      socket.emit('admin-warning', { sessionId, message })
+    })
   }
 
   if (!isAuthenticated || user?.role !== "admin") {

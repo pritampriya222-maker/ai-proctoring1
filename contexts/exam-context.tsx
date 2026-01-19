@@ -360,38 +360,81 @@ export function ExamProvider({ children }: ExamProviderProps) {
     })
   }, [submitExam])
 
-  // Poll for admin commands (termination, warnings)
+  // Join exam session via socket
   useEffect(() => {
-    if (!session?.sessionId || examState?.isSubmitted) return
+    if (!session?.sessionId || !examState) return
 
-    const checkStatus = async () => {
-      try {
-        const res = await fetch('/api/admin/sessions', { cache: 'no-store' });
-        if (res.ok) {
-          const sessions = await res.json();
-          const mySession = sessions.find((s: any) => s.sessionId === session.sessionId);
+    import("@/lib/socket-client").then(({ socket }) => {
+      if (!socket.connected) socket.connect()
 
-          if (mySession) {
-            if (mySession.adminMessage && mySession.adminMessage !== statusMessage) {
-              setStatusMessage(mySession.adminMessage);
-            }
+      socket.emit('student-join', {
+        sessionId: session.sessionId,
+        studentId: session.studentId,
+        studentName: student?.name || "Unknown",
+        examId: "exam-001"
+      })
 
-            if (mySession.status === 'terminated') {
-              if (!examState?.isSubmitted) {
-                submitExam();
-                alert("Your exam has been terminated by the proctor.");
-              }
-            }
-          }
+      socket.on('exam-terminated', (data: any) => {
+        if (!examState.isSubmitted) {
+          submitExam()
+          alert(`Your exam has been terminated. Reason: ${data.reason}`)
         }
-      } catch (e) {
-        // console.error("Status poll failed", e);
-      }
-    }
+      })
 
-    const interval = setInterval(checkStatus, 2000);
-    return () => clearInterval(interval);
-  }, [session, examState?.isSubmitted, submitExam, statusMessage]);
+      socket.on('warning-received', (data: any) => {
+        setStatusMessage(data.message)
+        // Auto-clear after 10 seconds?
+        setTimeout(() => setStatusMessage(null), 10000)
+      })
+
+      return () => {
+        socket.off('exam-terminated')
+        socket.off('warning-received')
+      }
+    })
+  }, [session?.sessionId, examState, student?.name, submitExam])
+
+  // Real-time exam start
+  useEffect(() => {
+    if (examState && session) {
+      import("@/lib/socket-client").then(({ socket }) => {
+        // Tell backend we started
+        socket.emit('exam-start', { sessionId: session.sessionId })
+      })
+    }
+  }, [session, examState ? 1 : 0]) // Run once when examState init
+
+
+  // Poll for admin commands (termination, warnings) - REPLACED BY SOCKET
+  // We keep the behavior sync but use socket instead of fetch
+  useEffect(() => {
+    if (!examState || !session || examState.isSubmitted) return
+
+    const hasRecentHeartbeat = pairingState.lastHeartbeat
+      ? Date.now() - (pairingState.lastHeartbeat instanceof Date
+        ? pairingState.lastHeartbeat.getTime()
+        : new Date(pairingState.lastHeartbeat).getTime()) < 10000
+      : false
+
+    // Send periodic updates to backend via socket - this serves as "heartbeat" and "status update"
+    const interval = setInterval(() => {
+      import("@/lib/socket-client").then(({ socket }) => {
+        socket.emit('student-update', {
+          sessionId: session.sessionId,
+          data: {
+            currentQuestion: examState.currentQuestionIndex + 1,
+            answeredCount: examState.answers.filter((a) => a.selectedOption !== null).length,
+            webcamActive: hasWebcamPermission,
+            screenShareActive: hasScreenPermission,
+            mobileConnected: isPaired && hasRecentHeartbeat,
+            behaviorFlags: examLog?.behaviorFlags || [],
+          }
+        })
+      })
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [examState, session, isPaired, pairingState, hasWebcamPermission, hasScreenPermission, examLog])
 
   // Check for termination from poll result
   // This logic should be inside the effect, but we need to expose the message to UI
