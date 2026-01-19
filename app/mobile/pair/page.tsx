@@ -21,6 +21,11 @@ function MobilePairContent() {
   const [pairingData, setPairingData] = useState<QRPairingData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isValidating, setIsValidating] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     // Updated to use simpler URL format: ?code=sessionId&student=studentId&ts=timestamp
@@ -91,6 +96,19 @@ function MobilePairContent() {
     // Store pairing data and redirect to proctoring page
     sessionStorage.setItem("mobile_pairing_data", JSON.stringify(pairingData))
     window.location.href = `/mobile/proctor?session=${pairingData.sessionId}`
+  }
+
+  if (!isMounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center gap-4 p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Initializing...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (isValidating) {
