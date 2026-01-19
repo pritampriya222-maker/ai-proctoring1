@@ -10,6 +10,7 @@ import { X, Maximize2, Minimize2, Camera, Monitor, Smartphone, AlertTriangle } f
 interface LiveVideoViewerProps {
   session: StudentSession
   onClose: () => void
+  onWarn?: (sessionId: string, message: string) => void
 }
 
 /**
@@ -18,7 +19,7 @@ interface LiveVideoViewerProps {
  * Used by admin to monitor student activity in real-time
  */
 
-export function LiveVideoViewer({ session, onClose }: LiveVideoViewerProps) {
+export function LiveVideoViewer({ session, onClose, onWarn }: LiveVideoViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const hasAlerts = session.behaviorFlags.some((f) => f.severity === "critical" || f.severity === "high")
@@ -41,6 +42,18 @@ export function LiveVideoViewer({ session, onClose }: LiveVideoViewerProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8 gap-1 bg-orange-500 hover:bg-orange-600 text-white border-none"
+            onClick={() => {
+              const msg = prompt("Enter warning message for student:");
+              if (msg) onWarn?.(session.sessionId, msg);
+            }}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            Warn
+          </Button>
           <div className="flex items-center gap-3 mr-4 text-xs">
             <span className={`flex items-center gap-1 ${session.webcamActive ? "text-green-400" : "text-red-400"}`}>
               <Camera className="h-3 w-3" />

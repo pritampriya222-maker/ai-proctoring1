@@ -8,6 +8,7 @@ import { WebcamPreview } from "./webcam-preview"
 import { SubmitDialog } from "./submit-dialog"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { AdminWarningToast } from "./admin-warning-toast"
 
 /**
  * Exam Interface Component
@@ -19,7 +20,7 @@ interface ExamInterfaceProps {
 }
 
 export function ExamInterface({ onExamComplete }: ExamInterfaceProps) {
-  const { examState, navigateToQuestion } = useExam()
+  const { examState, navigateToQuestion, adminMessage, clearAdminMessage } = useExam()
 
   if (!examState) return null
 
@@ -81,6 +82,11 @@ export function ExamInterface({ onExamComplete }: ExamInterfaceProps) {
           </div>
         </div>
       </main>
+
+      <AdminWarningToast
+        message={adminMessage || null}
+        onClose={clearAdminMessage || (() => { })}
+      />
     </div>
   )
 }

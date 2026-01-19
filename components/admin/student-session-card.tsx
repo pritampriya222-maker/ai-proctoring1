@@ -12,6 +12,7 @@ interface StudentSessionCardProps {
   session: StudentSession
   onViewDetails: (session: StudentSession) => void
   onTerminate: (sessionId: string) => void
+  onWarn?: (sessionId: string, message: string) => void
   onWatchLive?: (session: StudentSession) => void
 }
 
@@ -45,7 +46,7 @@ function getStatusColor(status: StudentSession["status"]) {
   }
 }
 
-export function StudentSessionCard({ session, onViewDetails, onTerminate, onWatchLive }: StudentSessionCardProps) {
+export function StudentSessionCard({ session, onViewDetails, onTerminate, onWatchLive, onWarn }: StudentSessionCardProps) {
   const criticalFlags = session.behaviorFlags.filter((f) => f.severity === "critical" || f.severity === "high")
   const progress = (session.answeredCount / session.totalQuestions) * 100
 
@@ -89,6 +90,16 @@ export function StudentSessionCard({ session, onViewDetails, onTerminate, onWatc
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
                   Terminate Session
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const msg = prompt("Enter warning message for student:");
+                    if (msg) onWarn?.(session.sessionId, msg);
+                  }}
+                  className="text-orange-400 focus:text-orange-400"
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Warn Student
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

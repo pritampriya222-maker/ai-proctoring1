@@ -80,6 +80,18 @@ export default function AdminDashboard() {
     )
   }
 
+  const handleWarn = async (sessionId: string, message: string) => {
+    try {
+      await fetch('/api/admin/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'warn', sessionId, data: { message } })
+      });
+      // Optimistically update UI? The poll will catch it anyway
+    } catch (e) {
+      console.error("Failed to warn", e);
+    }
+  }
+
   if (!isAuthenticated || user?.role !== "admin") {
     return null
   }
@@ -89,7 +101,13 @@ export default function AdminDashboard() {
       <AdminHeader />
 
       <main className="container py-6 space-y-6">
-        {watchingSession && <LiveVideoViewer session={watchingSession} onClose={() => setWatchingSession(null)} />}
+        {watchingSession && (
+          <LiveVideoViewer
+            session={watchingSession}
+            onClose={() => setWatchingSession(null)}
+            onWarn={handleWarn}
+          />
+        )}
 
         <Tabs defaultValue="monitor" className="space-y-6">
           <TabsList>
@@ -118,6 +136,7 @@ export default function AdminDashboard() {
               onViewDetails={handleViewDetails}
               onTerminate={handleTerminate}
               onWatchLive={handleWatchLive}
+              onWarn={handleWarn}
             />
           </TabsContent>
 

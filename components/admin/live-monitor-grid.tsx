@@ -11,10 +11,11 @@ interface LiveMonitorGridProps {
   sessions: StudentSession[]
   onViewDetails: (session: StudentSession) => void
   onTerminate: (sessionId: string) => void
+  onWarn?: (sessionId: string, message: string) => void
   onWatchLive?: (session: StudentSession) => void
 }
 
-export function LiveMonitorGrid({ sessions, onViewDetails, onTerminate, onWatchLive }: LiveMonitorGridProps) {
+export function LiveMonitorGrid({ sessions, onViewDetails, onTerminate, onWatchLive, onWarn }: LiveMonitorGridProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [alertFilter, setAlertFilter] = useState<string>("all")
@@ -111,6 +112,7 @@ export function LiveMonitorGrid({ sessions, onViewDetails, onTerminate, onWatchL
               onViewDetails={onViewDetails}
               onTerminate={onTerminate}
               onWatchLive={onWatchLive}
+              onWarn={onWarn}
             />
           ))}
         </div>

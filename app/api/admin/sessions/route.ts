@@ -66,6 +66,21 @@ export async function POST(req: Request) {
             }
         } else if (action === 'remove') {
             sessions = sessions.filter(s => s.sessionId !== sessionId);
+        } else if (action === 'warn') {
+            const index = sessions.findIndex(s => s.sessionId === sessionId);
+            if (index >= 0) {
+                // Cast to any to add dynamic property if strictly typed, or update type definition
+                (sessions[index] as any).adminMessage = data.message;
+                // Add to behavior flags for record
+                if (!sessions[index].behaviorFlags) sessions[index].behaviorFlags = [];
+                sessions[index].behaviorFlags.push({
+                    type: 'warning',
+                    description: `Admin Warning: ${data.message}`,
+                    timestamp: Date.now(),
+                    severity: 'medium'
+                });
+                sessions[index].lastUpdate = Date.now();
+            }
         }
 
         globalThis.globalActiveSessions = sessions;

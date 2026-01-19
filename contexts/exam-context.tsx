@@ -29,6 +29,8 @@ interface ExamContextType {
   updateQuestions: (questions: Question[]) => void
   addBehaviorFlag: (flag: Omit<BehaviorFlag, "timestamp">) => void
   tick: () => void
+  adminMessage?: string | null
+  clearAdminMessage?: () => void
 }
 
 const ExamContext = createContext<ExamContextType | undefined>(undefined)
@@ -44,6 +46,10 @@ export function ExamProvider({ children }: ExamProviderProps) {
   const [examState, setExamState] = useState<ExamState | null>(null)
   const [examLog, setExamLog] = useState<ExamLog | null>(null)
   const [questionStartTime, setQuestionStartTime] = useState<Date | null>(null)
+
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+
+  // Poll for admin commands (termination, warnings)
 
   useEffect(() => {
     if (!examState || !session || examState.isSubmitted) return
@@ -67,6 +73,7 @@ export function ExamProvider({ children }: ExamProviderProps) {
 
     return () => clearInterval(interval)
   }, [examState, session, isPaired, pairingState, hasWebcamPermission, hasScreenPermission, examLog])
+
 
   // Initialize exam with questions and duration
   const initializeExam = useCallback(
@@ -353,6 +360,42 @@ export function ExamProvider({ children }: ExamProviderProps) {
     })
   }, [submitExam])
 
+  // Poll for admin commands (termination, warnings)
+  useEffect(() => {
+    if (!session?.sessionId || examState?.isSubmitted) return
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/admin/sessions', { cache: 'no-store' });
+        if (res.ok) {
+          const sessions = await res.json();
+          const mySession = sessions.find((s: any) => s.sessionId === session.sessionId);
+
+          if (mySession) {
+            if (mySession.adminMessage && mySession.adminMessage !== statusMessage) {
+              setStatusMessage(mySession.adminMessage);
+            }
+
+            if (mySession.status === 'terminated') {
+              if (!examState?.isSubmitted) {
+                submitExam();
+                alert("Your exam has been terminated by the proctor.");
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // console.error("Status poll failed", e);
+      }
+    }
+
+    const interval = setInterval(checkStatus, 2000);
+    return () => clearInterval(interval);
+  }, [session, examState?.isSubmitted, submitExam, statusMessage]);
+
+  // Check for termination from poll result
+  // This logic should be inside the effect, but we need to expose the message to UI
+
   const value: ExamContextType = {
     examState,
     examLog,
@@ -364,6 +407,8 @@ export function ExamProvider({ children }: ExamProviderProps) {
     updateQuestions,
     addBehaviorFlag,
     tick,
+    adminMessage: statusMessage, // Expose for UI
+    clearAdminMessage: () => setStatusMessage(null)
   }
 
   return <ExamContext.Provider value={value}>{children}</ExamContext.Provider>
