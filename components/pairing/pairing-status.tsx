@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils"
 
 export function PairingStatus() {
   const { pairingState, isPaired } = usePairing()
-  const { deviceId, lastHeartbeat, cameraConfirmed } = pairingState
+  const { deviceId, lastHeartbeat: rawLastHeartbeat, cameraConfirmed } = pairingState
 
-  const isConnected = lastHeartbeat && Date.now() - lastHeartbeat.getTime() < 10000 // 10 second timeout
+  const lastHeartbeat = rawLastHeartbeat ? new Date(rawLastHeartbeat) : null
+  const isConnected = lastHeartbeat ? Date.now() - lastHeartbeat.getTime() < 10000 : false
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
